@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionale Convenzioni Aziende</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-500 to-purple-600 min-h-screen p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6 animate-slide-in">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">📋 Gestionale Convenzioni Aziende</h1>
+            <p class="text-gray-600">Gestisci le convenzioni aziendali e aggiungi nuove ditte</p>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 mb-6 animate-slide-in">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex gap-3 flex-wrap">
+                    <button onclick="showAddForm()" class="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105">
+                        <span>➕</span> Aggiungi Azienda
+                    </button>
+                    
+                    <label class="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all transform hover:scale-105">
+                        <span>📤</span> Carica Excel/CSV
+                        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)" class="hidden">
+                    </label>
+                    
+                    <button onclick="exportToCSV()" class="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105">
+                        <span>💾</span> Esporta CSV
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-lg flex-1 max-w-md">
+                    <span class="text-gray-400">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Cerca azienda, cognome o nome..." onkeyup="filterCompanies()" class="bg-transparent outline-none flex-1 text-gray-800">
+                </div>
+            </div>
+
+            <div id="statsInfo" class="mt-4 text-gray-600"></div>
+        </div>
+
+        <!-- Legenda Tariffe -->
+        <div class="bg-white rounded-2xl shadow-xl p-6 mb-6 animate-slide-in">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">💰 Legenda Tariffe Convenzioni</h2>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700">Tipologia Camera</th>
+                            <th class="px-4 py-3 text-center font-semibold text-blue-700">BASE</th>
+                            <th class="px-4 py-3 text-center font-semibold text-purple-700">SPECIAL</th>
+                            <th class="px-4 py-3 text-center font-semibold text-green-700">NUOVA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 font-semibold">SUITE (Emozione)</td>
+                            <td class="px-4 py-3 text-center text-blue-600 font-bold">€99</td>
+                            <td class="px-4 py-3 text-center text-purple-600 font-bold">€105</td>
+                            <td class="px-4 py-3 text-center text-green-600 font-bold">€109</td>
+                        </tr>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 font-semibold">JUNIOR SUITE (Essenza)</td>
+                            <td class="px-4 py-3 text-center text-blue-600 font-bold">€89</td>
+                            <td class="px-4 py-3 text-center text-purple-600 font-bold">€93</td>
+                            <td class="px-4 py-3 text-center text-green-600 font-bold">€97</td>
+                        </tr>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 font-semibold">DELUXE (Abbraccio)</td>
+                            <td class="px-4 py-3 text-center text-blue-600 font-bold">€75</td>
+                            <td class="px-4 py-3 text-center text-purple-600 font-bold">€79</td>
+                            <td class="px-4 py-3 text-center text-green-600 font-bold">€83</td>
+                        </tr>
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-3 font-semibold">SUPERIOR (Carezza)</td>
+                            <td class="px-4 py-3 text-center text-blue-600 font-bold">€65</td>
+                            <td class="px-4 py-3 text-center text-purple-600 font-bold">€69</td>
+                            <td class="px-4 py-3 text-center text-green-600 font-bold">€73</td>
+                        </tr>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 font-semibold">STANDARD (Melodia)</td>
+                            <td class="px-4 py-3 text-center text-blue-600 font-bold">€55</td>
+                            <td class="px-4 py-3 text-center text-purple-600 font-bold">€59</td>
+                            <td class="px-4 py-3 text-center text-green-600 font-bold">€63</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 text-sm text-gray-600 bg-yellow-50 p-3 rounded-lg">
+                ℹ️ <strong>Nota:</strong> Le tariffe SPECIAL sono in DUS + €10,00 per ogni persona aggiuntiva
+            </div>
+        </div>
+
+        <!-- Tabella Aziende -->
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden animate-slide-in">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                            <th class="px-6 py-4 text-left font-semibold">Azienda</th>
+                            <th class="px-6 py-4 text-left font-semibold">Cognome</th>
+                            <th class="px-6 py-4 text-left font-semibold">Nome</th>
+                            <th class="px-6 py-4 text-left font-semibold">Telefono</th>
+                            <th class="px-6 py-4 text-left font-semibold">Email</th>
+                            <th class="px-6 py-4 text-left font-semibold">Convenzione</th>
+                            <th class="px-6 py-4 text-left font-semibold">Note</th>
+                            <th class="px-6 py-4 text-left font-semibold">Data Ins.</th>
+                            <th class="px-6 py-4 text-left font-semibold">Utente/Rep.</th>
+                            <th class="px-6 py-4 text-center font-semibold">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form -->
+    <div id="formModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-in">
+            <h2 id="formTitle" class="text-2xl font-bold mb-6 text-gray-800">➕ Nuova Azienda</h2>
+            
+            <form id="companyForm" onsubmit="handleSubmit(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Azienda *</label>
+                        <input type="text" id="azienda" required class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="Es: NEXION S.P.A.">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Cognome *</label>
+                        <input type="text" id="cognome" required class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="Cognome referente">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nome *</label>
+                        <input type="text" id="nome" required class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="Nome referente">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Telefono</label>
+                        <input type="tel" id="telefono" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="+39 123 456 7890">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                        <input type="email" id="email" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="email@azienda.it">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Convenzione *</label>
+                        <select id="convenzione" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none">
+                            <option value="BASE">BASE</option>
+                            <option value="SPECIAL">SPECIAL</option>
+                            <option value="NUOVA">NUOVA</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Utente/Reparto</label>
+                        <input type="text" id="utenteReparto" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="Es: Reception, Sales">
+                    </div>
+
+                    <div class="col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Note</label>
+                        <textarea id="note" rows="3" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-blue-500 outline-none" placeholder="Note aggiuntive..."></textarea>
+                    </div>
+                </div>
+
+                <input type="hidden" id="editId">
+
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-semibold transition-all">
+                        Salva
+                    </button>
+                    <button type="button" onclick="closeForm()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-3 rounded-lg font-semibold transition-all">
+                        Annulla
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let companies = [];
+        let filteredCompanies = [];
+
+        // Carica dati da localStorage all'avvio
+        window.onload = function() {
+            const saved = localStorage.getItem('convenzioni');
+            if (saved) {
+                companies = JSON.parse(saved);
+                filteredCompanies = [...companies];
+                renderTable();
+                updateStats();
+            }
+        };
+
+        // Salva automaticamente
+        function saveToStorage() {
+            localStorage.setItem('convenzioni', JSON.stringify(companies));
+        }
+
+        // Mostra form aggiunta
+        function showAddForm() {
+            document.getElementById('formTitle').textContent = '➕ Nuova Azienda';
+            document.getElementById('companyForm').reset();
+            document.getElementById('editId').value = '';
+            document.getElementById('formModal').classList.remove('hidden');
+        }
+
+        // Chiudi form
+        function closeForm() {
+            document.getElementById('formModal').classList.add('hidden');
+        }
+
+        // Handle submit
+        function handleSubmit(event) {
+            event.preventDefault();
+            
+            const company = {
+                id: document.getElementById('editId').value || Date.now(),
+                azienda: document.getElementById('azienda').value,
+                cognome: document.getElementById('cognome').value,
+                nome: document.getElementById('nome').value,
+                telefono: document.getElementById('telefono').value,
+                email: document.getElementById('email').value,
+                convenzione: document.getElementById('convenzione').value,
+                note: document.getElementById('note').value,
+                dataInserimento: new Date().toISOString().split('T')[0],
+                utenteReparto: document.getElementById('utenteReparto').value
+            };
+
+            const editId = document.getElementById('editId').value;
+            if (editId) {
+                // Modifica
+                const index = companies.findIndex(c => c.id == editId);
+                companies[index] = company;
+            } else {
+                // Aggiungi
+                companies.push(company);
+            }
+
+            saveToStorage();
+            filterCompanies();
+            closeForm();
+            alert('✅ Azienda salvata con successo!');
+        }
+
+        // Modifica azienda
+        function editCompany(id) {
+            const company = companies.find(c => c.id == id);
+            if (!company) return;
+
+            document.getElementById('formTitle').textContent = '✏️ Modifica Azienda';
+            document.getElementById('azienda').value = company.azienda;
+            document.getElementById('cognome').value = company.cognome;
+            document.getElementById('nome').value = company.nome;
+            document.getElementById('telefono').value = company.telefono || '';
+            document.getElementById('email').value = company.email || '';
+            document.getElementById('convenzione').value = company.convenzione;
+            document.getElementById('note').value = company.note || '';
+            document.getElementById('utenteReparto').value = company.utenteReparto || '';
+            document.getElementById('editId').value = id;
+
+            document.getElementById('formModal').classList.remove('hidden');
+        }
+
+        // Elimina azienda
+        function deleteCompany(id) {
+            if (!confirm('Sei sicura di voler eliminare questa azienda?')) return;
+            
+            companies = companies.filter(c => c.id != id);
+            saveToStorage();
+            filterCompanies();
+            alert('🗑️ Azienda eliminata!');
+        }
+
+        // Filtra aziende
+        function filterCompanies() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            if (search) {
+                filteredCompanies = companies.filter(c => 
+                    c.azienda.toLowerCase().includes(search) ||
+                    c.cognome.toLowerCase().includes(search) ||
+                    c.nome.toLowerCase().includes(search)
+                );
+            } else {
+                filteredCompanies = [...companies];
+            }
+
+            renderTable();
+            updateStats();
+        }
+
+        // Render tabella
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            
+            if (filteredCompanies.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="px-6 py-12 text-center text-gray-500">
+                            <div class="text-6xl mb-4">📋</div>
+                            <p class="text-xl font-semibold mb-2">Nessuna azienda trovata</p>
+                            <p class="text-gray-400">
+                                ${companies.length === 0 
+                                    ? 'Carica un file Excel/CSV o aggiungi manualmente una nuova azienda'
+                                    : 'Prova a modificare i termini di ricerca'}
+                            </p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filteredCompanies.map(company => {
+                const badgeClass = 
+                    company.convenzione === 'BASE' ? 'bg-blue-100 text-blue-800' :
+                    company.convenzione === 'SPECIAL' ? 'bg-purple-100 text-purple-800' :
+                    'bg-green-100 text-green-800';
+
+                return `
+                    <tr class="border-b hover:bg-blue-50 transition-colors">
+                        <td class="px-6 py-4"><strong class="text-gray-800">${company.azienda}</strong></td>
+                        <td class="px-6 py-4 text-gray-600">${company.cognome}</td>
+                        <td class="px-6 py-4 text-gray-600">${company.nome}</td>
+                        <td class="px-6 py-4 text-gray-600">${company.telefono || '-'}</td>
+                        <td class="px-6 py-4 text-gray-600 text-sm">${company.email || '-'}</td>
+                        <td class="px-6 py-4">
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold ${badgeClass}">
+                                ${company.convenzione}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-gray-600 max-w-xs truncate" title="${company.note || ''}">${company.note || '-'}</td>
+                        <td class="px-6 py-4 text-gray-600 text-sm">${company.dataInserimento || '-'}</td>
+                        <td class="px-6 py-4 text-gray-600">${company.utenteReparto || '-'}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex gap-2 justify-center">
+                                <button onclick="editCompany(${company.id})" class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all" title="Modifica">
+                                    ✏️
+                                </button>
+                                <button onclick="deleteCompany(${company.id})" class="p-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-all" title="Elimina">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Aggiorna statistiche
+        function updateStats() {
+            const search = document.getElementById('searchInput').value;
+            const statsDiv = document.getElementById('statsInfo');
+            
+            let text = `<strong>${filteredCompanies.length}</strong> aziende`;
+            if (search) {
+                text += ` (filtrate da ${companies.length})`;
+            }
+            
+            statsDiv.innerHTML = text;
+        }
+
+        // Carica file
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileName = file.name.toLowerCase();
+            const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+            const isCSV = fileName.endsWith('.csv');
+
+            if (!isExcel && !isCSV) {
+                alert('⚠️ Formato file non supportato. Usa Excel (.xlsx, .xls) o CSV (.csv)');
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    let data = [];
+                    
+                    if (isExcel) {
+                        const binaryStr = e.target.result;
+                        const workbook = XLSX.read(binaryStr, { type: 'binary' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                        
+                        data = jsonData.map(row => ({
+                            id: Date.now() + Math.random(),
+                            azienda: row.Azienda || row.azienda || '',
+                            cognome: row.Cognome || row.cognome || '',
+                            nome: row.Nome || row.nome || '',
+                            telefono: row.Telefono || row.telefono || '',
+                            email: row.Email || row.email || '',
+                            convenzione: row.Convenzione || row.convenzione || row.CONVENZIONE || 'BASE',
+                            note: row.Note || row.note || row.NOTE || '',
+                            dataInserimento: row['Data Inserimento'] || row.dataInserimento || new Date().toISOString().split('T')[0],
+                            utenteReparto: row['Utente/Reparto'] || row.utenteReparto || ''
+                        }));
+                    } else {
+                        const text = e.target.result;
+                        const lines = text.split('\n');
+                        
+                        data = lines.slice(1)
+                            .filter(line => line.trim())
+                            .map(line => {
+                                const values = line.split(',').map(v => v.replace(/"/g, ''));
+                                return {
+                                    id: Date.now() + Math.random(),
+                                    azienda: values[0] || '',
+                                    cognome: values[1] || '',
+                                    nome: values[2] || '',
+                                    telefono: values[3] || '',
+                                    email: values[4] || '',
+                                    convenzione: values[5] || 'BASE',
+                                    note: values[6] || '',
+                                    dataInserimento: values[7] || new Date().toISOString().split('T')[0],
+                                    utenteReparto: values[8] || ''
+                                };
+                            });
+                    }
+                    
+                    companies = data;
+                    filteredCompanies = [...companies];
+                    saveToStorage();
+                    renderTable();
+                    updateStats();
+                    alert(`✅ ${data.length} aziende caricate da ${isExcel ? 'Excel' : 'CSV'}!`);
+                } catch (error) {
+                    alert('❌ Errore nel caricamento del file: ' + error.message);
+                }
+            };
+            
+            if (isExcel) {
+                reader.readAsBinaryString(file);
+            } else {
+                reader.readAsText(file);
+            }
+
+            event.target.value = '';
+        }
+
+        // Esporta CSV
+        function exportToCSV() {
+            if (companies.length === 0) {
+                alert('⚠️ Nessuna azienda da esportare!');
+                return;
+            }
+
+            const csv = [
+                'Azienda,Cognome,Nome,Telefono,Email,Convenzione,Note,Data Inserimento,Utente/Reparto',
+                ...companies.map(c => 
+                    `"${c.azienda}","${c.cognome}","${c.nome}","${c.telefono}","${c.email}","${c.convenzione}","${c.note}","${c.dataInserimento}","${c.utenteReparto}"`
+                )
+            ].join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `convenzioni_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
