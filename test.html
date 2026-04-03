@@ -9,14 +9,14 @@
     <div id="result">Caricamento...</div>
 
     <script>
-        const supabase = supabase.createClient(
+        const supabaseClient = supabase.createClient(
             'https://nsettzmyswlfrnzwvpsq.supabase.co',
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zZXR0em15c3dsZnJuend2cHNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMzA0NzIsImV4cCI6MjA4MTYwNjQ3Mn0.OA2B7-6PVOi8XSaM5_r0Dxv_wpbG5I_ImTxaR0sgUoY'
         );
 
         async function test() {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('convenzioni')
                     .select('*')
                     .limit(5);
