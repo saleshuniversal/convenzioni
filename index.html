@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestionale Convenzioni Aziende</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -19,7 +20,7 @@
         <!-- Header -->
         <div class="bg-white rounded-2xl shadow-2xl p-8 mb-6 animate-slide-in">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">📋 Gestionale Convenzioni Aziende</h1>
-            <p class="text-gray-600">Gestisci le convenzioni aziendali e aggiungi nuove ditte</p>
+            <p class="text-gray-600">Database multi-utente sincronizzato in tempo reale</p>
         </div>
 
         <!-- Toolbar -->
@@ -31,12 +32,16 @@
                     </button>
                     
                     <label class="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold cursor-pointer transition-all transform hover:scale-105">
-                        <span>📤</span> Carica Excel/CSV
+                        <span>📤</span> Importa CSV
                         <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" onchange="handleFileUpload(event)" class="hidden">
                     </label>
                     
                     <button onclick="exportToCSV()" class="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105">
                         <span>💾</span> Esporta CSV
+                    </button>
+
+                    <button onclick="refreshData()" class="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105">
+                        <span>🔄</span> Aggiorna
                     </button>
                 </div>
 
@@ -194,26 +199,46 @@
     </div>
 
     <script>
+        // Inizializza Supabase
+        const supabaseClient = supabase.createClient(
+            'https://nsettzmyswlfrnzwvpsq.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zZXR0em15c3dsZnJuend2cHNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMzA0NzIsImV4cCI6MjA4MTYwNjQ3Mn0.OA2B7-6PVOi8XSaM5_r0Dxv_wpbG5I_ImTxaR0sgUoY'
+        );
+
         let companies = [];
         let filteredCompanies = [];
 
-        // Carica dati da localStorage all'avvio
-        window.onload = function() {
-            const saved = localStorage.getItem('convenzioni');
-            if (saved) {
-                companies = JSON.parse(saved);
-                filteredCompanies = [...companies];
-                renderTable();
-                updateStats();
-            }
+        // Carica dati all'avvio
+        window.onload = async function() {
+            await loadCompanies();
         };
 
-        // Salva automaticamente
-        function saveToStorage() {
-            localStorage.setItem('convenzioni', JSON.stringify(companies));
+        // Carica aziende da Supabase
+        async function loadCompanies() {
+            const { data, error } = await supabaseClient
+                .from('convenzioni')
+                .select('*')
+                .order('azienda', { ascending: true });
+
+            if (error) {
+                console.error('Errore caricamento:', error);
+                alert('❌ Errore nel caricamento dei dati: ' + error.message);
+                return;
+            }
+
+            companies = data;
+            filteredCompanies = [...companies];
+            renderTable();
+            updateStats();
         }
 
-        // Mostra form aggiunta
+        // Refresh dati
+        async function refreshData() {
+            await loadCompanies();
+            alert('✅ Dati aggiornati!');
+        }
+
+        // Form
         function showAddForm() {
             document.getElementById('formTitle').textContent = '➕ Nuova Azienda';
             document.getElementById('companyForm').reset();
@@ -221,17 +246,15 @@
             document.getElementById('formModal').classList.remove('hidden');
         }
 
-        // Chiudi form
         function closeForm() {
             document.getElementById('formModal').classList.add('hidden');
         }
 
-        // Handle submit
-        function handleSubmit(event) {
+        // Submit form
+        async function handleSubmit(event) {
             event.preventDefault();
             
             const company = {
-                id: document.getElementById('editId').value || Date.now(),
                 azienda: document.getElementById('azienda').value,
                 cognome: document.getElementById('cognome').value,
                 nome: document.getElementById('nome').value,
@@ -239,29 +262,43 @@
                 email: document.getElementById('email').value,
                 convenzione: document.getElementById('convenzione').value,
                 note: document.getElementById('note').value,
-                dataInserimento: new Date().toISOString().split('T')[0],
-                utenteReparto: document.getElementById('utenteReparto').value
+                data_inserimento: new Date().toISOString().split('T')[0],
+                utente_reparto: document.getElementById('utenteReparto').value
             };
 
             const editId = document.getElementById('editId').value;
+            
             if (editId) {
-                // Modifica
-                const index = companies.findIndex(c => c.id == editId);
-                companies[index] = company;
+                // Update
+                const { error } = await supabaseClient
+                    .from('convenzioni')
+                    .update(company)
+                    .eq('id', editId);
+
+                if (error) {
+                    alert('❌ Errore aggiornamento: ' + error.message);
+                    return;
+                }
             } else {
-                // Aggiungi
-                companies.push(company);
+                // Insert
+                const { error } = await supabaseClient
+                    .from('convenzioni')
+                    .insert([company]);
+
+                if (error) {
+                    alert('❌ Errore inserimento: ' + error.message);
+                    return;
+                }
             }
 
-            saveToStorage();
-            filterCompanies();
+            await loadCompanies();
             closeForm();
-            alert('✅ Azienda salvata con successo!');
+            alert('✅ Azienda salvata!');
         }
 
-        // Modifica azienda
+        // Modifica
         function editCompany(id) {
-            const company = companies.find(c => c.id == id);
+            const company = companies.find(c => c.id === id);
             if (!company) return;
 
             document.getElementById('formTitle').textContent = '✏️ Modifica Azienda';
@@ -272,23 +309,31 @@
             document.getElementById('email').value = company.email || '';
             document.getElementById('convenzione').value = company.convenzione;
             document.getElementById('note').value = company.note || '';
-            document.getElementById('utenteReparto').value = company.utenteReparto || '';
+            document.getElementById('utenteReparto').value = company.utente_reparto || '';
             document.getElementById('editId').value = id;
 
             document.getElementById('formModal').classList.remove('hidden');
         }
 
-        // Elimina azienda
-        function deleteCompany(id) {
+        // Elimina
+        async function deleteCompany(id) {
             if (!confirm('Sei sicura di voler eliminare questa azienda?')) return;
             
-            companies = companies.filter(c => c.id != id);
-            saveToStorage();
-            filterCompanies();
+            const { error } = await supabaseClient
+                .from('convenzioni')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                alert('❌ Errore eliminazione: ' + error.message);
+                return;
+            }
+
+            await loadCompanies();
             alert('🗑️ Azienda eliminata!');
         }
 
-        // Filtra aziende
+        // Filtro
         function filterCompanies() {
             const search = document.getElementById('searchInput').value.toLowerCase();
             
@@ -318,7 +363,7 @@
                             <p class="text-xl font-semibold mb-2">Nessuna azienda trovata</p>
                             <p class="text-gray-400">
                                 ${companies.length === 0 
-                                    ? 'Carica un file Excel/CSV o aggiungi manualmente una nuova azienda'
+                                    ? 'Importa il CSV o aggiungi manualmente una nuova azienda'
                                     : 'Prova a modificare i termini di ricerca'}
                             </p>
                         </td>
@@ -346,8 +391,8 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 text-gray-600 max-w-xs truncate" title="${company.note || ''}">${company.note || '-'}</td>
-                        <td class="px-6 py-4 text-gray-600 text-sm">${company.dataInserimento || '-'}</td>
-                        <td class="px-6 py-4 text-gray-600">${company.utenteReparto || '-'}</td>
+                        <td class="px-6 py-4 text-gray-600 text-sm">${company.data_inserimento || '-'}</td>
+                        <td class="px-6 py-4 text-gray-600">${company.utente_reparto || '-'}</td>
                         <td class="px-6 py-4">
                             <div class="flex gap-2 justify-center">
                                 <button onclick="editCompany(${company.id})" class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all" title="Modifica">
@@ -363,7 +408,7 @@
             }).join('');
         }
 
-        // Aggiorna statistiche
+        // Statistiche
         function updateStats() {
             const search = document.getElementById('searchInput').value;
             const statsDiv = document.getElementById('statsInfo');
@@ -373,26 +418,36 @@
                 text += ` (filtrate da ${companies.length})`;
             }
             
+            // Conta convenzioni
+            const counts = { BASE: 0, SPECIAL: 0, NUOVA: 0 };
+            filteredCompanies.forEach(c => counts[c.convenzione]++);
+            text += ` | 🔵 BASE: ${counts.BASE} | 🟣 SPECIAL: ${counts.SPECIAL} | 🟢 NUOVA: ${counts.NUOVA}`;
+            
             statsDiv.innerHTML = text;
         }
 
-        // Carica file
-        function handleFileUpload(event) {
+        // Import CSV/Excel
+        async function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
+
+            if (!confirm('⚠️ ATTENZIONE: Questo importerà i dati nel database condiviso. Continuare?')) {
+                event.target.value = '';
+                return;
+            }
 
             const fileName = file.name.toLowerCase();
             const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
             const isCSV = fileName.endsWith('.csv');
 
             if (!isExcel && !isCSV) {
-                alert('⚠️ Formato file non supportato. Usa Excel (.xlsx, .xls) o CSV (.csv)');
+                alert('⚠️ Formato file non supportato');
                 return;
             }
 
             const reader = new FileReader();
             
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     let data = [];
                     
@@ -403,16 +458,15 @@
                         const jsonData = XLSX.utils.sheet_to_json(firstSheet);
                         
                         data = jsonData.map(row => ({
-                            id: Date.now() + Math.random(),
                             azienda: row.Azienda || row.azienda || '',
                             cognome: row.Cognome || row.cognome || '',
                             nome: row.Nome || row.nome || '',
                             telefono: row.Telefono || row.telefono || '',
                             email: row.Email || row.email || '',
-                            convenzione: row.Convenzione || row.convenzione || row.CONVENZIONE || 'BASE',
-                            note: row.Note || row.note || row.NOTE || '',
-                            dataInserimento: row['Data Inserimento'] || row.dataInserimento || new Date().toISOString().split('T')[0],
-                            utenteReparto: row['Utente/Reparto'] || row.utenteReparto || ''
+                            convenzione: row.Convenzione || row.convenzione || 'BASE',
+                            note: row.Note || row.note || '',
+                            data_inserimento: row['Data Inserimento'] || row.dataInserimento || new Date().toISOString().split('T')[0],
+                            utente_reparto: row['Utente/Reparto'] || row.utenteReparto || 'Import CSV'
                         }));
                     } else {
                         const text = e.target.result;
@@ -423,7 +477,6 @@
                             .map(line => {
                                 const values = line.split(',').map(v => v.replace(/"/g, ''));
                                 return {
-                                    id: Date.now() + Math.random(),
                                     azienda: values[0] || '',
                                     cognome: values[1] || '',
                                     nome: values[2] || '',
@@ -431,20 +484,26 @@
                                     email: values[4] || '',
                                     convenzione: values[5] || 'BASE',
                                     note: values[6] || '',
-                                    dataInserimento: values[7] || new Date().toISOString().split('T')[0],
-                                    utenteReparto: values[8] || ''
+                                    data_inserimento: values[7] || new Date().toISOString().split('T')[0],
+                                    utente_reparto: values[8] || 'Import CSV'
                                 };
                             });
                     }
-                    
-                    companies = data;
-                    filteredCompanies = [...companies];
-                    saveToStorage();
-                    renderTable();
-                    updateStats();
-                    alert(`✅ ${data.length} aziende caricate da ${isExcel ? 'Excel' : 'CSV'}!`);
+
+                    // Insert in Supabase
+                    const { error } = await supabaseClient
+                        .from('convenzioni')
+                        .insert(data);
+
+                    if (error) {
+                        alert('❌ Errore import: ' + error.message);
+                        return;
+                    }
+
+                    await loadCompanies();
+                    alert(`✅ ${data.length} aziende importate nel database!`);
                 } catch (error) {
-                    alert('❌ Errore nel caricamento del file: ' + error.message);
+                    alert('❌ Errore: ' + error.message);
                 }
             };
             
@@ -457,7 +516,7 @@
             event.target.value = '';
         }
 
-        // Esporta CSV
+        // Export CSV
         function exportToCSV() {
             if (companies.length === 0) {
                 alert('⚠️ Nessuna azienda da esportare!');
@@ -467,7 +526,7 @@
             const csv = [
                 'Azienda,Cognome,Nome,Telefono,Email,Convenzione,Note,Data Inserimento,Utente/Reparto',
                 ...companies.map(c => 
-                    `"${c.azienda}","${c.cognome}","${c.nome}","${c.telefono}","${c.email}","${c.convenzione}","${c.note}","${c.dataInserimento}","${c.utenteReparto}"`
+                    `"${c.azienda}","${c.cognome}","${c.nome}","${c.telefono}","${c.email}","${c.convenzione}","${c.note}","${c.data_inserimento}","${c.utente_reparto}"`
                 )
             ].join('\n');
             
@@ -475,7 +534,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `convenzioni_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `convenzioni_export_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
